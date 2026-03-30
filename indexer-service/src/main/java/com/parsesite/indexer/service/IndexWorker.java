@@ -8,7 +8,6 @@ import com.parsesite.indexer.repository.RawDocumentRepository;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -45,15 +44,14 @@ public class IndexWorker {
         List<String> entities = extractEntities(text);
 
         String id = String.valueOf(raw.getId());
-        String payload = "{"
-                + "\"url\":\"" + escape(raw.getUrl()) + "\","
-                + "\"content\":\"" + escape(text) + "\","
-                + "\"language\":\"" + language + "\","
-                + "\"entities\":" + toJsonArray(entities) + ","
-                + "\"contentHash\":\"" + raw.getContentHash() + "\""
-                + "}";
+        Map<String, Object> payload = new HashMap<String, Object>();
+        payload.put("url", raw.getUrl());
+        payload.put("content", text);
+        payload.put("language", language);
+        payload.put("entities", entities);
+        payload.put("contentHash", raw.getContentHash());
 
-        IndexRequest request = new IndexRequest("documents").id(id).source(payload, XContentType.JSON);
+        IndexRequest request = new IndexRequest("documents").id(id).source(payload);
         esClient.index(request, RequestOptions.DEFAULT);
 
         rabbitTemplate.convertAndSend(QueueNames.ANALYZE_QUEUE, new AnalyzeTask(id, text));
@@ -164,17 +162,4 @@ public class IndexWorker {
         return new ArrayList<String>(set);
     }
 
-    private String escape(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
-
-    private String toJsonArray(List<String> values) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < values.size(); i++) {
-            if (i > 0) sb.append(",");
-            sb.append("\"").append(escape(values.get(i))).append("\"");
-        }
-        sb.append("]");
-        return sb.toString();
-    }
 }

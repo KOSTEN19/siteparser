@@ -5,7 +5,6 @@ import com.parsesite.common.dto.AnalyzeTask;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.xcontent.XContentType;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
@@ -29,15 +28,12 @@ public class AnalyticsWorker {
         String topic = classifyTopic(text);
         String simhash = Integer.toHexString(text.hashCode());
 
-        String payload = "{"
-                + "\"doc\":{"
-                + "\"sentiment\":\"" + sentiment + "\","
-                + "\"summary\":\"" + escape(summary) + "\","
-                + "\"topic\":\"" + topic + "\","
-                + "\"simhash\":\"" + simhash + "\""
-                + "}"
-                + "}";
-        esClient.update(new UpdateRequest("documents", task.getDocumentId()).doc(payload, XContentType.JSON), RequestOptions.DEFAULT);
+        Map<String, Object> doc = new HashMap<String, Object>();
+        doc.put("sentiment", sentiment);
+        doc.put("summary", summary);
+        doc.put("topic", topic);
+        doc.put("simhash", simhash);
+        esClient.update(new UpdateRequest("documents", task.getDocumentId()).doc(doc), RequestOptions.DEFAULT);
     }
 
     private String sentiment(String text) {
@@ -66,7 +62,4 @@ public class AnalyticsWorker {
         return "general";
     }
 
-    private String escape(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }
