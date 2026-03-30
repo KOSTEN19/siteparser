@@ -7,7 +7,6 @@ import com.parsesite.common.dto.PublicationResult;
 import com.parsesite.common.entity.RawDocument;
 import com.parsesite.crawler.repository.RawDocumentRepository;
 import com.rabbitmq.client.*;
-import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -47,7 +46,7 @@ public class CrawlerWorker implements DisposableBean {
     private final ConcurrentLinkedQueue<DeliveryTask> taskQueue = new ConcurrentLinkedQueue<DeliveryTask>();
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final ExecutorService workerPool = Executors.newFixedThreadPool(4);
-    private Connection rabbitConnection;
+    private com.rabbitmq.client.Connection rabbitConnection;
     private Channel consumeChannel;
     private Channel publishChannel;
 
@@ -148,7 +147,7 @@ public class CrawlerWorker implements DisposableBean {
     }
 
     private void processSeedTask(CrawlTask task) throws Exception {
-        Connection.Response response = Jsoup.connect(task.getUrl())
+        org.jsoup.Connection.Response response = Jsoup.connect(task.getUrl())
                 .userAgent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
                 .timeout(10000)
                 .ignoreHttpErrors(true)
@@ -172,7 +171,7 @@ public class CrawlerWorker implements DisposableBean {
     }
 
     private void processArticleTask(CrawlTask task) throws Exception {
-        Connection.Response response = Jsoup.connect(task.getUrl())
+        org.jsoup.Connection.Response response = Jsoup.connect(task.getUrl())
                 .userAgent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
                 .timeout(12000)
                 .ignoreHttpErrors(true)
