@@ -4,22 +4,26 @@ import java.io.Serializable;
 
 public class CrawlTask implements Serializable {
     private String url;
-    private int depth;
-    private String source;
+    private String kind;
+    private String seedId;
+    private int attempt;
 
     public CrawlTask() {
     }
 
-    public CrawlTask(String url, int depth, String source) {
+    public CrawlTask(String url, String kind, String seedId, int attempt) {
         this.url = url;
-        this.depth = depth;
-        this.source = source;
+        this.kind = kind;
+        this.seedId = seedId;
+        this.attempt = attempt;
     }
 
     public String getUrl() { return url; }
     public void setUrl(String url) { this.url = url; }
-    public int getDepth() { return depth; }
-    public void setDepth(int depth) { this.depth = depth; }
-    public String getSource() { return source; }
-    public void setSource(String source) { this.source = source; }
+    public String getKind() { return kind; }
+    public void setKind(String kind) { this.kind = kind; }
+    public String getSeedId() { return seedId; }
+    public void setSeedId(String seedId) { this.seedId = seedId; }
+    public int getAttempt() { return attempt; }
+    public void setAttempt(int attempt) { this.attempt = attempt; }
 }

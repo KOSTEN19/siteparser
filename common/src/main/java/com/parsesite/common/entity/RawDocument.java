@@ -13,6 +13,18 @@ public class RawDocument {
     @Column(nullable = false, length = 2048)
     private String url;
 
+    @Column(name = "document_id", length = 128, unique = true)
+    private String documentId;
+
+    @Column(length = 1024)
+    private String title;
+
+    @Column(length = 255)
+    private String author;
+
+    @Column(name = "published_at", length = 64)
+    private String publishedAt;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
@@ -35,6 +47,14 @@ public class RawDocument {
     public void setId(Long id) { this.id = id; }
     public String getUrl() { return url; }
     public void setUrl(String url) { this.url = url; }
+    public String getDocumentId() { return documentId; }
+    public void setDocumentId(String documentId) { this.documentId = documentId; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getAuthor() { return author; }
+    public void setAuthor(String author) { this.author = author; }
+    public String getPublishedAt() { return publishedAt; }
+    public void setPublishedAt(String publishedAt) { this.publishedAt = publishedAt; }
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
     public String getContentType() { return contentType; }

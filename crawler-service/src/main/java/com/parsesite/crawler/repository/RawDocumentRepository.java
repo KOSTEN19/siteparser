@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface RawDocumentRepository extends JpaRepository<RawDocument, Long> {
     Optional<RawDocument> findTopByUrlOrderByFetchedAtDesc(String url);
+    boolean existsByDocumentId(String documentId);
 }

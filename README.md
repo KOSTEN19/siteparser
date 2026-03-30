@@ -34,12 +34,12 @@ Endpoints:
 - `viewer/viewer` (search only)
 
 ## Pipeline
-1. Scheduler publishes `crawl.queue`.
-2. Crawler downloads content and stores `raw_documents`.
-3. Crawler publishes `index.queue`.
-4. Indexer cleans content and indexes to `documents`.
-5. Indexer publishes `analyze.queue`.
-6. Analytics enriches existing Elasticsearch document.
+1. Scheduler programmatically declares and publishes to `tasks.queue`.
+2. Crawler consumes via RabbitMQ `basicConsume` (manual ack) with multi-thread workers.
+3. Seed tasks parse `https://www.securityvision.ru/news/` and enqueue article links.
+4. Article tasks parse `title`, `publishedAt`, `author`, `url`, `text`.
+5. Crawler builds `documentId = sha256(publishedAt + "|" + url)` and skips duplicates.
+6. Result is stored as `output/<id>.json` and published to `results.queue`.
 
 ## Reliability and operations
 - Health and metrics: `/actuator/health`, `/actuator/prometheus`.
@@ -47,3 +47,7 @@ Endpoints:
 - Backups: `ops/backup.sh` for PostgreSQL dump and Elasticsearch snapshot.
 - Restore: `ops/restore_postgres.sh`.
 - Data integrity strategy: compare indexed `contentHash` with latest `raw_documents` hash and trigger reindex if mismatched.
+
+## RabbitMQ mode requirements
+- Consumer mode: `basicConsume` with manual ack.
+- Pull mode: `basicGet` debug endpoint in crawler: `GET /debug/basic-get`.
