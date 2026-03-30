@@ -8,7 +8,8 @@ COPY crawler-service crawler-service
 COPY indexer-service indexer-service
 COPY analytics-service analytics-service
 COPY api-service api-service
-RUN mvn -q -pl common,${MODULE} -am clean package -DskipTests
+RUN echo "Building module: ${MODULE}" \
+    && mvn -B -pl common,${MODULE} -am clean package -DskipTests
 
 FROM eclipse-temurin:8-jre
 ARG MODULE
