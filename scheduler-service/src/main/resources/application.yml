@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: scheduler-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: 5672
+    username: guest
+    password: guest
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

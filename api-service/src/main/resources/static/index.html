@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parsesite Search UI</title>
+    <style>
+        body { font-family: sans-serif; margin: 2rem; }
+        input, button { padding: 0.6rem; font-size: 1rem; }
+        .row { margin-bottom: 1rem; }
+        pre { white-space: pre-wrap; background: #f2f2f2; padding: 1rem; }
+    </style>
+</head>
+<body>
+<h1>Parsesite Query Builder</h1>
+<div class="row">
+    <input id="q" placeholder="Enter query" size="60"/>
+    <button onclick="runSearch()">Search</button>
+</div>
+<div class="row">
+    <small>Use Basic Auth: viewer/viewer, analyst/analyst, admin/admin</small>
+</div>
+<pre id="out">No results yet.</pre>
+<script>
+async function runSearch() {
+    const q = document.getElementById("q").value.trim();
+    if (!q) return;
+    const r = await fetch("/search?q=" + encodeURIComponent(q), {
+        headers: { Authorization: "Basic " + btoa("viewer:viewer") }
+    });
+    document.getElementById("out").textContent = await r.text();
+}
+</script>
+</body>
+</html>

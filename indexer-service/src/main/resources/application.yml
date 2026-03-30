@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: indexer-service
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: 5672
+    username: guest
+    password: guest
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:5432/parsesite
+    username: parsesite
+    password: parsesite
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

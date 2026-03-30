@@ -1,0 +1,135 @@
+version: "3.9"
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.16
+    container_name: parsesite-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.16
+    container_name: parsesite-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: parsesite-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbit-data:/var/lib/rabbitmq
+
+  postgres:
+    image: postgres:15
+    container_name: parsesite-postgres
+    environment:
+      - POSTGRES_USER=parsesite
+      - POSTGRES_PASSWORD=parsesite
+      - POSTGRES_DB=parsesite
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./ops/initdb:/docker-entrypoint-initdb.d
+
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    container_name: parsesite-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  scheduler-service:
+    build:
+      context: .
+      dockerfile: services.Dockerfile
+      args:
+        MODULE: scheduler-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8081:8080"
+    depends_on:
+      - rabbitmq
+      - postgres
+
+  crawler-service:
+    build:
+      context: .
+      dockerfile: services.Dockerfile
+      args:
+        MODULE: crawler-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8082:8080"
+    depends_on:
+      - rabbitmq
+      - postgres
+
+  indexer-service:
+    build:
+      context: .
+      dockerfile: services.Dockerfile
+      args:
+        MODULE: indexer-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8083:8080"
+    depends_on:
+      - rabbitmq
+      - elasticsearch
+      - postgres
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: services.Dockerfile
+      args:
+        MODULE: analytics-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8084:8080"
+    depends_on:
+      - rabbitmq
+      - elasticsearch
+      - postgres
+
+  api-service:
+    build:
+      context: .
+      dockerfile: services.Dockerfile
+      args:
+        MODULE: api-service
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8080:8080"
+    depends_on:
+      - elasticsearch
+
+volumes:
+  es-data:
+  rabbit-data:
+  postgres-data:
