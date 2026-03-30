@@ -3,7 +3,11 @@ ARG MODULE
 WORKDIR /workspace
 COPY pom.xml .
 COPY common common
-COPY ${MODULE} ${MODULE}
+COPY scheduler-service scheduler-service
+COPY crawler-service crawler-service
+COPY indexer-service indexer-service
+COPY analytics-service analytics-service
+COPY api-service api-service
 RUN mvn -q -pl common,${MODULE} -am clean package -DskipTests
 
 FROM eclipse-temurin:8-jre
