@@ -197,13 +197,17 @@ public class CrawlerWorker implements DisposableBean {
             publishError(task.getUrl(), response.statusCode(), "Article fetch failed");
             return;
         }
+        log.info("Article fetch OK url={} status={}", task.getUrl(), response.statusCode());
+        String rawHtml = safeBody(response, task.getUrl());
+        log.info("Article body ready url={} length={}", task.getUrl(), rawHtml.length());
+
         Document doc;
         try {
             doc = response.parse();
+            log.info("Article response.parse() succeeded url={}", task.getUrl());
         } catch (RuntimeException ex) {
             log.warn("Failed to parse article {} with response.parse(), fallback to Jsoup.parse(body)", task.getUrl(), ex);
-            String bodyHtml = response.body() == null ? "" : response.body();
-            doc = Jsoup.parse(bodyHtml, task.getUrl());
+            doc = Jsoup.parse(rawHtml, task.getUrl());
         }
 
         String title = "";
@@ -234,6 +238,21 @@ public class CrawlerWorker implements DisposableBean {
             log.warn("Text extraction failed for {}, fallback to full body text", task.getUrl(), ex);
             text = doc != null && doc.body() != null ? doc.body().text().replaceAll("\\s+", " ").trim() : "";
         }
+        if (title == null) {
+            title = "";
+        }
+        if (publishedAt == null || publishedAt.trim().isEmpty()) {
+            publishedAt = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
+        }
+        if (author == null || author.trim().isEmpty()) {
+            author = "unknown";
+        }
+        if (text == null) {
+            text = "";
+        }
+        log.info("Article extracted url={} titleLen={} textLen={} publishedAt={} author={}",
+                task.getUrl(), title.length(), text.length(), publishedAt, author);
+
         String documentId = sha256(publishedAt + "|" + task.getUrl());
 
         if (rawDocumentRepository.existsByDocumentId(documentId)) {
@@ -247,13 +266,13 @@ public class CrawlerWorker implements DisposableBean {
         rawDocument.setTitle(title);
         rawDocument.setAuthor(author);
         rawDocument.setPublishedAt(publishedAt);
-        rawDocument.setContent(response.body());
+        rawDocument.setContent(rawHtml);
         rawDocument.setContentType(response.contentType());
         rawDocument.setCharset(response.charset());
         rawDocument.setEtag(response.header("ETag"));
         rawDocument.setLastModified(response.header("Last-Modified"));
         rawDocument.setFetchedAt(Instant.now());
-        rawDocument.setContentHash(sha256(response.body()));
+        rawDocument.setContentHash(sha256(rawHtml));
         rawDocumentRepository.save(rawDocument);
         log.info("Saved raw document {}", task.getUrl());
 
@@ -269,6 +288,16 @@ public class CrawlerWorker implements DisposableBean {
         writeJson(result);
         publishResult(result);
         log.info("Published result {}", task.getUrl());
+    }
+
+    private String safeBody(org.jsoup.Connection.Response response, String url) {
+        try {
+            String body = response.body();
+            return body == null ? "" : body;
+        } catch (RuntimeException ex) {
+            log.warn("Article body read failed for {}, fallback to empty body", url, ex);
+            return "";
+        }
     }
 
     private void publishTask(CrawlTask task) throws Exception {
