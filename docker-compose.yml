@@ -106,8 +106,8 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER:-parsesite_admin}
       - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-u7N9!pQ2zX4mL6rT8vW1}
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-parsesite_admin}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-N4v!8sK2pR6xT1mQ9zL3}
+      - SPRING_DATASOURCE_USERNAME=parsesite
+      - SPRING_DATASOURCE_PASSWORD=parsesite
     volumes:
       - ./crawler-service/target/crawler-service-0.1.0.jar:/app/crawler-service.jar:ro
       - ./output:/app/output
