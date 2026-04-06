@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -158,10 +159,11 @@ public class CrawlerWorker implements DisposableBean {
         }
         Document doc = response.parse();
         Set<String> links = new HashSet<String>();
-        for (Element a : doc.select("a[href]")) {
+        for (Element a : doc.select("h3 a[href], h4 a[href], h5 a[href], .news a[href], .news-item a[href], article a[href]")) {
             String href = a.absUrl("href");
-            if (href.startsWith("https://www.securityvision.ru/news/") && !href.equals("https://www.securityvision.ru/news/")) {
-                links.add(href.split("#")[0]);
+            String normalized = normalizeUrl(href);
+            if (isLikelyNewsArticleUrl(normalized)) {
+                links.add(normalized);
             }
         }
         for (String link : links) {
@@ -243,7 +245,11 @@ public class CrawlerWorker implements DisposableBean {
         result.setStatusCode(statusCode);
         result.setError(error);
         writeJson(result);
-        publishResult(result);
+        byte[] body = objectMapper.writeValueAsBytes(result);
+        synchronized (publishChannel) {
+            publishChannel.basicPublish("", QueueNames.ERROR_QUEUE,
+                    new AMQP.BasicProperties.Builder().deliveryMode(2).build(), body);
+        }
     }
 
     private String firstText(Document doc, String... selectors) {
@@ -267,12 +273,37 @@ public class CrawlerWorker implements DisposableBean {
     }
 
     private String extractPublishedAt(Document doc) {
-        Element time = doc.selectFirst("time[datetime]");
-        if (time != null && !time.attr("datetime").trim().isEmpty()) {
-            return time.attr("datetime").trim();
+        Document scoped = doc.clone();
+        removeNoiseSections(scoped);
+
+        String[] selectors = new String[]{
+                "meta[property=article:published_time]",
+                "meta[name=pubdate]",
+                "meta[name=date]",
+                "time[datetime]",
+                "[itemprop=datePublished]",
+                ".news-date",
+                ".date"
+        };
+        for (String selector : selectors) {
+            Element e = scoped.selectFirst(selector);
+            if (e == null) {
+                continue;
+            }
+            String value = "time[datetime]".equals(selector) || "[itemprop=datePublished]".equals(selector)
+                    ? e.attr("datetime").trim()
+                    : e.attr("content").trim();
+            if (value.isEmpty()) {
+                value = e.text().trim();
+            }
+            if (!value.isEmpty()) {
+                return value;
+            }
         }
-        String allText = doc.text();
-        Matcher matcher = Pattern.compile("\\b\\d{2}\\.\\d{2}\\.\\d{4}\\b").matcher(allText);
+
+        Element main = scoped.selectFirst("article, .news-detail, .content, main");
+        String text = main != null ? main.text() : scoped.text();
+        Matcher matcher = Pattern.compile("\\b\\d{2}\\.\\d{2}\\.\\d{4}\\b").matcher(text);
         if (matcher.find()) {
             return matcher.group();
         }
@@ -295,12 +326,81 @@ public class CrawlerWorker implements DisposableBean {
     }
 
     private String extractText(Document doc) {
-        Element body = doc.selectFirst("article, .news-detail, .content, main");
+        Document working = doc.clone();
+        removeNoiseSections(working);
+
+        Element body = working.selectFirst("article, .news-detail, .content, .post-content, main");
         if (body == null) {
-            body = doc.body();
+            body = working.body();
         }
-        body.select("script, style, noscript, header, footer, nav, form, aside").remove();
+        body.select("script, style, noscript, header, footer, nav, form, aside, .cookie, .cookies, .menu, .breadcrumbs").remove();
         return body.text().replaceAll("\\s+", " ").trim();
+    }
+
+    private void removeNoiseSections(Document doc) {
+        doc.select("script, style, noscript, header, footer, nav, form, aside").remove();
+        for (Element title : doc.select("h1, h2, h3, h4, h5")) {
+            String t = title.text().toLowerCase();
+            if (t.contains("похожие новости") || t.contains("похожие статьи")
+                    || t.contains("рекомендуем") || t.contains("материалы по тегам")) {
+                Element parent = title.parent();
+                if (parent != null) {
+                    parent.remove();
+                } else {
+                    title.remove();
+                }
+            }
+        }
+    }
+
+    private String normalizeUrl(String url) {
+        if (url == null) {
+            return "";
+        }
+        String clean = url.trim();
+        int hashIdx = clean.indexOf('#');
+        if (hashIdx >= 0) {
+            clean = clean.substring(0, hashIdx);
+        }
+        int qIdx = clean.indexOf('?');
+        if (qIdx >= 0) {
+            clean = clean.substring(0, qIdx);
+        }
+        return clean;
+    }
+
+    private boolean isLikelyNewsArticleUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return false;
+        }
+        if (!url.startsWith("https://www.securityvision.ru/news/")) {
+            return false;
+        }
+        try {
+            URI uri = URI.create(url);
+            String path = uri.getPath() == null ? "" : uri.getPath();
+            if ("/news".equals(path) || "/news/".equals(path)) {
+                return false;
+            }
+            if (!path.startsWith("/news/")) {
+                return false;
+            }
+            String suffix = path.substring("/news/".length());
+            if (suffix.isEmpty()) {
+                return false;
+            }
+            if (suffix.endsWith("/")) {
+                suffix = suffix.substring(0, suffix.length() - 1);
+            }
+            if (suffix.isEmpty() || suffix.contains("/")) {
+                return false;
+            }
+            String s = suffix.toLowerCase();
+            return !(s.equals("news") || s.startsWith("page") || s.contains("tag")
+                    || s.contains("feed") || s.contains("rss") || s.contains("category"));
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     private void writeJson(PublicationResult result) throws IOException {
