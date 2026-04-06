@@ -197,11 +197,43 @@ public class CrawlerWorker implements DisposableBean {
             publishError(task.getUrl(), response.statusCode(), "Article fetch failed");
             return;
         }
-        Document doc = response.parse();
-        String title = firstText(doc, "h1", "h2", "meta[property=og:title]");
-        String publishedAt = extractPublishedAt(doc);
-        String author = extractAuthor(doc);
-        String text = extractText(doc);
+        Document doc;
+        try {
+            doc = response.parse();
+        } catch (RuntimeException ex) {
+            log.warn("Failed to parse article {} with response.parse(), fallback to Jsoup.parse(body)", task.getUrl(), ex);
+            String bodyHtml = response.body() == null ? "" : response.body();
+            doc = Jsoup.parse(bodyHtml, task.getUrl());
+        }
+
+        String title = "";
+        String publishedAt = "";
+        String author = "unknown";
+        String text = "";
+
+        try {
+            title = firstText(doc, "h1", "h2", "meta[property=og:title]");
+        } catch (RuntimeException ex) {
+            log.warn("Title extraction failed for {}", task.getUrl(), ex);
+        }
+        try {
+            publishedAt = extractPublishedAt(doc);
+        } catch (RuntimeException ex) {
+            log.warn("PublishedAt extraction failed for {}", task.getUrl(), ex);
+            publishedAt = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
+        }
+        try {
+            author = extractAuthor(doc);
+        } catch (RuntimeException ex) {
+            log.warn("Author extraction failed for {}", task.getUrl(), ex);
+            author = "unknown";
+        }
+        try {
+            text = extractText(doc);
+        } catch (RuntimeException ex) {
+            log.warn("Text extraction failed for {}, fallback to full body text", task.getUrl(), ex);
+            text = doc != null && doc.body() != null ? doc.body().text().replaceAll("\\s+", " ").trim() : "";
+        }
         String documentId = sha256(publishedAt + "|" + task.getUrl());
 
         if (rawDocumentRepository.existsByDocumentId(documentId)) {
@@ -344,6 +376,9 @@ public class CrawlerWorker implements DisposableBean {
     }
 
     private String extractText(Document doc) {
+        if (doc == null) {
+            return "";
+        }
         Document working = doc.clone();
         removeNoiseSections(working);
 
@@ -351,11 +386,17 @@ public class CrawlerWorker implements DisposableBean {
         if (body == null) {
             body = working.body();
         }
+        if (body == null) {
+            return "";
+        }
         body.select("script, style, noscript, header, footer, nav, form, aside, .cookie, .cookies, .menu, .breadcrumbs").remove();
         return body.text().replaceAll("\\s+", " ").trim();
     }
 
     private void removeNoiseSections(Document doc) {
+        if (doc == null) {
+            return;
+        }
         doc.select("script, style, noscript, header, footer, nav, form, aside").remove();
         for (Element title : doc.select("h1, h2, h3, h4, h5")) {
             String t = title.text().toLowerCase();
