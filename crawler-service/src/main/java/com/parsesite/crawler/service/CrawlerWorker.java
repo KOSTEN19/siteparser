@@ -10,6 +10,8 @@ import com.rabbitmq.client.*;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,7 @@ import java.util.regex.Pattern;
 
 @Service
 public class CrawlerWorker implements DisposableBean {
+    private static final Logger log = LoggerFactory.getLogger(CrawlerWorker.class);
     private final RawDocumentRepository rawDocumentRepository;
     private final String rabbitHost;
     private final int rabbitPort;
@@ -127,8 +130,9 @@ public class CrawlerWorker implements DisposableBean {
     }
 
     private void processDelivery(DeliveryTask deliveryTask) {
+        CrawlTask task = null;
         try {
-            CrawlTask task = objectMapper.readValue(deliveryTask.body, CrawlTask.class);
+            task = objectMapper.readValue(deliveryTask.body, CrawlTask.class);
             if ("seed".equals(task.getKind())) {
                 processSeedTask(task);
             } else {
@@ -138,6 +142,16 @@ public class CrawlerWorker implements DisposableBean {
                 consumeChannel.basicAck(deliveryTask.deliveryTag, false);
             }
         } catch (Exception ex) {
+            String url = task != null ? task.getUrl() : "unknown";
+            String kind = task != null ? task.getKind() : "unknown";
+            log.error("Failed processing {} task for URL {}", kind, url, ex);
+            if (task != null) {
+                try {
+                    publishError(task.getUrl(), 500, "Processing exception: " + ex.getClass().getSimpleName() + ": " + ex.getMessage());
+                } catch (Exception publishEx) {
+                    log.error("Failed publishing error for URL {}", task.getUrl(), publishEx);
+                }
+            }
             try {
                 synchronized (consumeChannel) {
                     consumeChannel.basicAck(deliveryTask.deliveryTag, false);
@@ -170,6 +184,7 @@ public class CrawlerWorker implements DisposableBean {
             CrawlTask articleTask = new CrawlTask(link, "article", task.getSeedId(), 0);
             publishTask(articleTask);
         }
+        log.info("Seed {} discovered {} article links", task.getUrl(), links.size());
     }
 
     private void processArticleTask(CrawlTask task) throws Exception {
@@ -190,6 +205,7 @@ public class CrawlerWorker implements DisposableBean {
         String documentId = sha256(publishedAt + "|" + task.getUrl());
 
         if (rawDocumentRepository.existsByDocumentId(documentId)) {
+            log.info("Skip duplicate article {}", task.getUrl());
             return;
         }
 
@@ -207,6 +223,7 @@ public class CrawlerWorker implements DisposableBean {
         rawDocument.setFetchedAt(Instant.now());
         rawDocument.setContentHash(sha256(response.body()));
         rawDocumentRepository.save(rawDocument);
+        log.info("Saved raw document {}", task.getUrl());
 
         PublicationResult result = new PublicationResult();
         result.setId(documentId);
@@ -219,6 +236,7 @@ public class CrawlerWorker implements DisposableBean {
         result.setStatusCode(response.statusCode());
         writeJson(result);
         publishResult(result);
+        log.info("Published result {}", task.getUrl());
     }
 
     private void publishTask(CrawlTask task) throws Exception {
