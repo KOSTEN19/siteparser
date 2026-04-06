@@ -8,8 +8,8 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:rabbitmq}
     port: 5672
-    username: guest
-    password: guest
+    username: ${RABBITMQ_USER:parsesite_admin}
+    password: ${RABBITMQ_PASSWORD:u7N9!pQ2zX4mL6rT8vW1}
 
 management:
   endpoints:

@@ -1,4 +1,12 @@
 services:
+  web-ui:
+    image: nginx:1.27-alpine
+    container_name: parsesite-web-ui
+    ports:
+      - "80:80"
+    volumes:
+      - ./ops/web/index.html:/usr/share/nginx/html/index.html:ro
+
   elasticsearch:
     profiles: ["full"]
     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.16
@@ -31,6 +39,9 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: parsesite-rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-parsesite_admin}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-u7N9!pQ2zX4mL6rT8vW1}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -46,16 +57,16 @@ services:
     image: postgres:15
     container_name: parsesite-postgres
     environment:
-      - POSTGRES_USER=parsesite
-      - POSTGRES_PASSWORD=parsesite
-      - POSTGRES_DB=parsesite
+      - POSTGRES_USER=${POSTGRES_USER:-parsesite_admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-N4v!8sK2pR6xT1mQ9zL3}
+      - POSTGRES_DB=${POSTGRES_DB:-parsesite}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./ops/initdb:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U parsesite -d parsesite"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-parsesite_admin} -d ${POSTGRES_DB:-parsesite}"]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -75,6 +86,8 @@ services:
     command: ["java", "-jar", "/app/scheduler-service.jar"]
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER:-parsesite_admin}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-u7N9!pQ2zX4mL6rT8vW1}
     volumes:
       - ./scheduler-service/target/scheduler-service-0.1.0.jar:/app/scheduler-service.jar:ro
     ports:
@@ -91,6 +104,10 @@ services:
     command: ["java", "-jar", "/app/crawler-service.jar"]
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER:-parsesite_admin}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-u7N9!pQ2zX4mL6rT8vW1}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-parsesite_admin}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-N4v!8sK2pR6xT1mQ9zL3}
     volumes:
       - ./crawler-service/target/crawler-service-0.1.0.jar:/app/crawler-service.jar:ro
       - ./output:/app/output
@@ -109,6 +126,10 @@ services:
       target: indexer-runtime
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER:-parsesite_admin}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-u7N9!pQ2zX4mL6rT8vW1}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-parsesite_admin}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-N4v!8sK2pR6xT1mQ9zL3}
     ports:
       - "8083:8080"
     depends_on:
@@ -127,6 +148,8 @@ services:
       target: analytics-runtime
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER:-parsesite_admin}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-u7N9!pQ2zX4mL6rT8vW1}
     ports:
       - "8084:8080"
     depends_on:

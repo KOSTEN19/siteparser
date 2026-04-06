@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parsesite Control Panel</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #0b1220; color: #e5e7eb; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
+    .card { background: #111827; border: 1px solid #334155; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    h1, h2 { margin-top: 0; }
+    a { color: #93c5fd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { background: #1f2937; padding: 2px 6px; border-radius: 6px; }
+    li { margin-bottom: 8px; }
+    .ok { color: #86efac; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Parsesite: как пользоваться</h1>
+    <div class="card">
+      <h2>1) Сначала запустить сервисы</h2>
+      <ul>
+        <li>Легкий режим: <code>docker compose up -d</code></li>
+        <li>Полный режим: <code>docker compose --profile full up -d --build</code></li>
+        <li>Проверка статуса: <code>docker compose ps</code></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>2) Полезные ссылки</h2>
+      <ul>
+        <li>Эта страница: <a href="http://193.124.128.144/">http://193.124.128.144/</a></li>
+        <li>RabbitMQ UI: <a href="http://193.124.128.144:15672/">http://193.124.128.144:15672/</a></li>
+        <li>Scheduler service: <a href="http://193.124.128.144:8081/">http://193.124.128.144:8081/</a></li>
+        <li>Crawler debug (basic-get): <a href="http://193.124.128.144:8082/debug/basic-get">http://193.124.128.144:8082/debug/basic-get</a></li>
+        <li>API (full profile): <a href="http://193.124.128.144:8080/">http://193.124.128.144:8080/</a></li>
+        <li>Kibana (full profile): <a href="http://193.124.128.144:5601/">http://193.124.128.144:5601/</a></li>
+        <li>Prometheus (full profile): <a href="http://193.124.128.144:9090/">http://193.124.128.144:9090/</a></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>3) Что проверять после старта</h2>
+      <ul>
+        <li>В <code>docker compose ps</code> сервисы должны быть в статусе <span class="ok">Up</span>.</li>
+        <li>В папке <code>output/</code> должны появляться JSON-файлы публикаций.</li>
+        <li>Логи crawler: <code>docker compose logs -f crawler-service</code></li>
+        <li>Логи scheduler: <code>docker compose logs -f scheduler-service</code></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>4) Новые пароли (заменены на сложные)</h2>
+      <ul>
+        <li>RabbitMQ user: <code>parsesite_admin</code></li>
+        <li>RabbitMQ password: <code>u7N9!pQ2zX4mL6rT8vW1</code></li>
+        <li>PostgreSQL user: <code>parsesite_admin</code></li>
+        <li>PostgreSQL password: <code>N4v!8sK2pR6xT1mQ9zL3</code></li>
+      </ul>
+      <p>При необходимости можно переопределить их через переменные окружения <code>RABBITMQ_USER</code>, <code>RABBITMQ_PASSWORD</code>, <code>POSTGRES_USER</code>, <code>POSTGRES_PASSWORD</code>.</p>
+    </div>
+  </div>
+</body>
+</html>
